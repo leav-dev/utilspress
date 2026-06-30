@@ -21,21 +21,21 @@ jobs:
         include:
           - name: Linux
             runner: ubuntu-latest
-            build_cmd: flet build linux --module-name src/main.py
+            build_cmd: flet build linux --module-name src.main
             artifact_name: utilspress-linux
             artifact_path: build/linux
             needs_linux_deps: true
 
           - name: macOS
             runner: macos-latest
-            build_cmd: flet build macos --module-name src/main.py
+            build_cmd: flet build macos --module-name src.main
             artifact_name: utilspress-macos
             artifact_path: build/macos
             needs_linux_deps: false
 
           - name: Windows
             runner: windows-latest
-            build_cmd: flet build windows --module-name src/main.py
+            build_cmd: flet build windows --module-name src.main
             artifact_name: utilspress-windows
             artifact_path: build/windows
             needs_linux_deps: false
