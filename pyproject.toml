@@ -16,5 +16,6 @@ dependencies = [
 [project.scripts]
 utilspress = "src.main:entry_point"
 
-[tool.flet]
-appEntryPoint = "src/main.py"
+[tool.flet.app]
+path = "src"
+module = "main"
