@@ -37,7 +37,7 @@ def _collect_pdfs(path):
     return []
 
 
-def compress_pdfs(paths, output_dir=None, quality="ebook"):
+def compress_pdfs(paths, output_dir=None, quality="ebook", on_progress=None):
     if isinstance(paths, str):
         paths = _collect_pdfs(paths)
     else:
@@ -59,7 +59,7 @@ def compress_pdfs(paths, output_dir=None, quality="ebook"):
         original_size = os.path.getsize(path)
 
         if original_size == 0:
-            results.append({
+            result = {
                 "file": filename,
                 "original_size": 0,
                 "original_size_str": "0 B",
@@ -67,7 +67,10 @@ def compress_pdfs(paths, output_dir=None, quality="ebook"):
                 "final_size_str": "0 B",
                 "savings_percent": 0,
                 "preset": quality,
-            })
+            }
+            results.append(result)
+            if on_progress:
+                on_progress(result)
             continue
 
         output_path = os.path.join(output_dir, filename)
@@ -77,7 +80,7 @@ def compress_pdfs(paths, output_dir=None, quality="ebook"):
             doc.save(output_path, **params)
             doc.close()
         except Exception:
-            results.append({
+            result = {
                 "file": filename,
                 "original_size": original_size,
                 "original_size_str": _size_str(original_size),
@@ -86,13 +89,16 @@ def compress_pdfs(paths, output_dir=None, quality="ebook"):
                 "savings_percent": 0,
                 "preset": quality,
                 "error": "Error al comprimir",
-            })
+            }
+            results.append(result)
+            if on_progress:
+                on_progress(result)
             continue
 
         final_size = os.path.getsize(output_path)
         savings = 100 * (1 - final_size / original_size) if original_size > 0 else 0
 
-        results.append({
+        result = {
             "file": filename,
             "original_size": original_size,
             "original_size_str": _size_str(original_size),
@@ -100,6 +106,9 @@ def compress_pdfs(paths, output_dir=None, quality="ebook"):
             "final_size_str": _size_str(final_size),
             "savings_percent": round(savings, 2),
             "preset": quality,
-        })
+        }
+        results.append(result)
+        if on_progress:
+            on_progress(result)
 
     return results

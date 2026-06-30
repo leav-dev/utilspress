@@ -50,14 +50,24 @@ def build_pdf_tab(page: ft.Page):
         set_paths([path] if path else [])
 
     def _compress():
+        acc = []
+
+        def on_progress(result):
+            acc.append(result)
+            output = f"{OUTPUT_BASE}"
+            results_area.controls = [build_results_table(acc, "pdf", output)]
+            page.update()
+
         results = compress_pdfs(
             state["paths"],
             quality=preset_dropdown.value,
+            on_progress=on_progress,
         )
         progress.visible = False
-        output = f"{OUTPUT_BASE}"
-        results_area.controls = [build_results_table(results, "pdf", output)]
-        page.update()
+        if not acc:
+            output = f"{OUTPUT_BASE}"
+            results_area.controls = [build_results_table(results, "pdf", output)]
+            page.update()
 
     def on_compress(e):
         if not state["paths"]:

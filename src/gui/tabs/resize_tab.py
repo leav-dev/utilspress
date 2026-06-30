@@ -48,13 +48,27 @@ def build_resize_tab(page: ft.Page):
         set_paths([path] if path else [])
 
     def _resize():
+        acc = []
+
+        def on_progress(result):
+            acc.append(result)
+            output = f"{OUTPUT_BASE}"
+            results_area.controls = [build_results_table(acc, "resize", output)]
+            page.update()
+
         w = int(width_input.value)
         h = int(height_input.value)
-        results = resize_images(state["paths"], w, h, maintain_aspect=aspect_cb.value)
+        results = resize_images(
+            state["paths"],
+            w, h,
+            maintain_aspect=aspect_cb.value,
+            on_progress=on_progress,
+        )
         progress.visible = False
-        output = f"{OUTPUT_BASE}"
-        results_area.controls = [build_results_table(results, "resize", output)]
-        page.update()
+        if not acc:
+            output = f"{OUTPUT_BASE}"
+            results_area.controls = [build_results_table(results, "resize", output)]
+            page.update()
 
     def on_resize(e):
         if not state["paths"]:

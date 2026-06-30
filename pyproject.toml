@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "utilspress"
+version = "2.0"
+description = "Procesamiento de imágenes con GUI de escritorio"
+requires-python = ">=3.10"
+dependencies = [
+    "pillow",
+    "flet>=0.28",
+    "PyMuPDF",
+]
+
+[project.scripts]
+utilspress = "src.main:entry_point"
+
+[tool.flet]
+appEntryPoint = "src/main.py"

@@ -137,9 +137,14 @@ def comprimir():
 
 # ── Nuevas funciones puras (Web GUI) ─────────────────────────────────
 
-def compress_images(paths, output_dir=None, quality=None, compress_level=None):
+def compress_images(paths, output_dir=None, quality=None, compress_level=None, on_progress=None):
     if isinstance(paths, str):
         paths = _collect_images(paths)
+    else:
+        expanded = []
+        for p in paths:
+            expanded.extend(_collect_images(p))
+        paths = expanded
     if output_dir is None:
         output_dir = OUTPUT_BASE
     os.makedirs(output_dir, exist_ok=True)
@@ -165,21 +170,29 @@ def compress_images(paths, output_dir=None, quality=None, compress_level=None):
         final_size = os.path.getsize(output_path)
         savings = 100 * (1 - final_size / original_size) if original_size > 0 else 0
 
-        results.append({
+        result = {
             "file": filename,
             "original_size": original_size,
             "original_size_str": _size_str(original_size),
             "final_size": final_size,
             "final_size_str": _size_str(final_size),
             "savings_percent": round(savings, 2),
-        })
+        }
+        results.append(result)
+        if on_progress:
+            on_progress(result)
 
     return results
 
 
-def convert_images(paths, target_format, output_dir=None):
+def convert_images(paths, target_format, output_dir=None, on_progress=None):
     if isinstance(paths, str):
         paths = _collect_images(paths)
+    else:
+        expanded = []
+        for p in paths:
+            expanded.extend(_collect_images(p))
+        paths = expanded
     if output_dir is None:
         output_dir = OUTPUT_BASE
     os.makedirs(output_dir, exist_ok=True)
@@ -194,24 +207,36 @@ def convert_images(paths, target_format, output_dir=None):
         output_filename = f"{name_no_ext}.{target_format.lower()}"
         output_path = os.path.join(output_dir, output_filename)
 
+        if target_format.upper() == "JPEG" and img.mode in ("RGBA", "P", "LA"):
+            img = img.convert("RGB")
         img.save(output_path, format=target_format.upper())
         final_size = os.path.getsize(output_path)
 
-        results.append({
+        orig_str = _size_str(original_size)
+        final_str = _size_str(final_size)
+        result = {
             "file": filename,
             "new_file": output_filename,
             "original_size": original_size,
-            "original_size_str": _size_str(original_size),
+            "original_size_str": orig_str,
             "final_size": final_size,
-            "final_size_str": _size_str(final_size),
-        })
+            "final_size_str": final_str,
+        }
+        results.append(result)
+        if on_progress:
+            on_progress(result)
 
     return results
 
 
-def resize_images(paths, width, height, output_dir=None, maintain_aspect=True):
+def resize_images(paths, width, height, output_dir=None, maintain_aspect=True, on_progress=None):
     if isinstance(paths, str):
         paths = _collect_images(paths)
+    else:
+        expanded = []
+        for p in paths:
+            expanded.extend(_collect_images(p))
+        paths = expanded
     if output_dir is None:
         output_dir = OUTPUT_BASE
     os.makedirs(output_dir, exist_ok=True)
@@ -233,14 +258,21 @@ def resize_images(paths, width, height, output_dir=None, maintain_aspect=True):
         img.save(output_path)
         final_size = os.path.getsize(output_path)
 
-        results.append({
+        orig_str = _size_str(original_size)
+        final_str = _size_str(final_size)
+        orig_dims = f"{orig_w}x{orig_h}"
+        final_dims = f"{img.width}x{img.height}"
+        result = {
             "file": filename,
             "original_size": original_size,
-            "original_size_str": _size_str(original_size),
+            "original_size_str": orig_str,
             "final_size": final_size,
-            "final_size_str": _size_str(final_size),
-            "original_dims": f"{orig_w}x{orig_h}",
-            "final_dims": f"{img.width}x{img.height}",
-        })
+            "final_size_str": final_str,
+            "original_dims": orig_dims,
+            "final_dims": final_dims,
+        }
+        results.append(result)
+        if on_progress:
+            on_progress(result)
 
     return results
