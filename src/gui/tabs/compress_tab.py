@@ -8,8 +8,17 @@ from ..components.file_picker import pick_files_async, pick_dir_async
 def build_compress_tab(page: ft.Page):
     state = {"paths": []}
 
-    quality_slider = ft.Slider(min=1, max=100, value=85, label="{value}%", width=300)
-    compress_slider = ft.Slider(min=0, max=9, value=6, label="{value}", width=300)
+    quality_value = ft.Text("85%", size=13, weight=ft.FontWeight.W_600, width=50)
+    compress_value = ft.Text("6", size=13, weight=ft.FontWeight.W_600, width=50)
+
+    quality_slider = ft.Slider(
+        min=1, max=100, value=85, label="{value}%", width=300,
+        on_change=lambda e: setattr(quality_value, "value", f"{int(e.control.value)}%") or page.update(),
+    )
+    compress_slider = ft.Slider(
+        min=0, max=9, value=6, label="{value}", width=300,
+        on_change=lambda e: setattr(compress_value, "value", str(int(e.control.value))) or page.update(),
+    )
     path_label = ft.Text("Ningún archivo seleccionado", size=13, color=ft.Colors.GREY_600)
     progress = ft.ProgressBar(visible=False, width=600)
     results_area = ft.Column()
@@ -47,15 +56,25 @@ def build_compress_tab(page: ft.Page):
         set_paths([path] if path else [])
 
     def _compress():
+        acc = []
+
+        def on_progress(result):
+            acc.append(result)
+            output = f"{OUTPUT_BASE}"
+            results_area.controls = [build_results_table(acc, "compress", output)]
+            page.update()
+
         results = compress_images(
             state["paths"],
             quality=int(quality_slider.value),
             compress_level=int(compress_slider.value),
+            on_progress=on_progress,
         )
         progress.visible = False
-        output = f"{OUTPUT_BASE}"
-        results_area.controls = [build_results_table(results, "compress", output)]
-        page.update()
+        if not acc:
+            output = f"{OUTPUT_BASE}"
+            results_area.controls = [build_results_table(results, "compress", output)]
+            page.update()
 
     def on_compress(e):
         if not state["paths"]:
@@ -73,9 +92,9 @@ def build_compress_tab(page: ft.Page):
         path_label,
         ft.Divider(height=16, color=ft.Colors.TRANSPARENT),
         ft.Text("Calidad (JPG / WebP)", size=13, weight=ft.FontWeight.W_500),
-        quality_slider,
+        ft.Row([quality_slider, quality_value], vertical_alignment=ft.CrossAxisAlignment.CENTER),
         ft.Text("Compresión PNG (0 = sin compresión, 9 = máxima)", size=13, weight=ft.FontWeight.W_500),
-        compress_slider,
+        ft.Row([compress_slider, compress_value], vertical_alignment=ft.CrossAxisAlignment.CENTER),
         ft.Divider(height=12, color=ft.Colors.TRANSPARENT),
         ft.Button("Comprimir", icon=ft.Icons.COMPRESS, on_click=on_compress),
         progress,

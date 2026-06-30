@@ -1,0 +1,68 @@
+name: Build utilspress
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  UV_PYTHON: 3.12
+  PYTHONUTF8: 1
+  FLET_CLI_NO_RICH_OUTPUT: 1
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            runner: ubuntu-latest
+            build_cmd: flet build linux
+            artifact_name: utilspress-linux
+            artifact_path: build/linux
+            needs_linux_deps: true
+
+          - name: macOS
+            runner: macos-latest
+            build_cmd: flet build macos
+            artifact_name: utilspress-macos
+            artifact_path: build/macos
+            needs_linux_deps: false
+
+          - name: Windows
+            runner: windows-latest
+            build_cmd: flet build windows
+            artifact_name: utilspress-windows
+            artifact_path: build/windows
+            needs_linux_deps: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install Linux dependencies
+        if: matrix.needs_linux_deps
+        shell: bash
+        run: |
+          sudo apt update --allow-releaseinfo-change
+          LINUX_DEPS="$(uv run python -c 'from flet.utils.linux_deps import linux_dependencies; print(" ".join(linux_dependencies))')"
+          sudo apt-get install -y --no-install-recommends $LINUX_DEPS
+          sudo apt-get clean
+
+      - name: Build app
+        shell: bash
+        run: |
+          uv run ${{ matrix.build_cmd }} --yes --verbose
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error

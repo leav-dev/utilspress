@@ -54,11 +54,24 @@ def build_convert_tab(page: ft.Page):
         set_paths([path] if path else [])
 
     def _convert():
-        results = convert_images(state["paths"], format_dd.value)
+        acc = []
+
+        def on_progress(result):
+            acc.append(result)
+            output = f"{OUTPUT_BASE}"
+            results_area.controls = [build_results_table(acc, "convert", output)]
+            page.update()
+
+        results = convert_images(
+            state["paths"],
+            format_dd.value,
+            on_progress=on_progress,
+        )
         progress.visible = False
-        output = f"{OUTPUT_BASE}"
-        results_area.controls = [build_results_table(results, "convert", output)]
-        page.update()
+        if not acc:
+            output = f"{OUTPUT_BASE}"
+            results_area.controls = [build_results_table(results, "convert", output)]
+            page.update()
 
     def on_convert(e):
         if not state["paths"]:
