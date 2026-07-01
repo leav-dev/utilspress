@@ -1,8 +1,4 @@
 from PIL import Image as pl
-from rich import print
-from rich.text import Text
-from rich.console import Console
-from rich.padding import Padding
 import os
 
 OUTPUT_BASE = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -45,6 +41,7 @@ def detectar_imagenes(ruta, formato):
     return imagenes
 
 def imagen_compresor(ruta):
+    from rich import print
     image = pl.open(ruta)
     _, extension = os.path.splitext(ruta)
     extension = extension.replace(".", "").upper()
@@ -68,6 +65,7 @@ def imagen_compresor(ruta):
     return ahorro
 
 def procesar(ruta, args: dict):
+    from rich import print
     proceso = args['proceso']
     formato = args['formato']
     conta = 0
@@ -119,6 +117,10 @@ def procesar(ruta, args: dict):
     return
 
 def comprimir():
+    from rich import print
+    from rich.text import Text
+    from rich.console import Console
+    from rich.padding import Padding
     console = Console()
     text = Text()
     text.append("puede definir la ruta que quiere del archivo o carrpeta de imagenes que quiere comprimir:")
