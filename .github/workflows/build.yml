@@ -81,9 +81,9 @@ jobs:
 
       - name: Package Windows (.exe)
         if: runner.os == 'Windows'
-        shell: pwsh
+        shell: cmd
         run: |
-          7z a -sfx7z.sfx "${{ matrix.artifact_name }}.exe" "${{ matrix.artifact_path }}\*"
+          7z a -sfx ${{ matrix.artifact_name }}.exe ${{ matrix.artifact_path }}\*
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
