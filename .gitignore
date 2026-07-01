@@ -53,6 +53,11 @@ typings/
 *.manifest
 *.spec
 
+# Build artifacts
+*.zip
+*.run
+*.dmg
+
 # Log files
 *.log
 
