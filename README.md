@@ -26,7 +26,13 @@ utilspress es una aplicación de escritorio con interfaz gráfica moderna para p
 
 ### Descargar ejecutable (recomendado)
 
-Descargá la última versión para tu sistema operativo desde la sección [Releases](https://github.com/leav-dev/utilspress/releases) del repositorio. No requiere Python instalado.
+Descargá la última versión desde [Releases](https://github.com/leav-dev/utilspress/releases). No requiere Python ni dependencias.
+
+| Plataforma | Archivo | Uso |
+|---|---|---|
+| **Linux** | `utilspress-linux.run` | `./utilspress-linux.run` |
+| **macOS** | `utilspress-macos.dmg` | Abrir y arrastrar a Applications |
+| **Windows** | `utilspress-windows.exe` | Doble clic para extraer y ejecutar |
 
 ### Con Python y pip
 
@@ -48,7 +54,7 @@ uv run python src/main.py
 
 ### GitHub Releases
 
-El proyecto incluye un workflow de GitHub Actions que compila para **Linux**, **macOS** y **Windows**. Para publicar una nueva versión, creá un tag con formato `v*`:
+El proyecto incluye un workflow de GitHub Actions que compila para **Linux**, **macOS** y **Windows**, empaquetando cada uno como un solo archivo ejecutable autónomo. Para publicar una nueva versión, creá un tag con formato `v*`:
 
 ```bash
 git tag v1.0.0

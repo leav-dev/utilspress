@@ -61,11 +61,35 @@ jobs:
         run: |
           uv run ${{ matrix.build_cmd }} --yes --verbose
 
+      - name: Package Linux (.run)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get install -y makeself
+          makeself "${{ matrix.artifact_path }}" "${{ matrix.artifact_name }}.run" \
+            "utilspress — Image and PDF processor" \
+            ./utilspress
+
+      - name: Package macOS (.dmg)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          hdiutil create -volname "utilspress" \
+            -srcfolder "${{ matrix.artifact_path }}" \
+            -ov -format UDZO \
+            "${{ matrix.artifact_name }}.dmg"
+
+      - name: Package Windows (.exe)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          7z a -sfx7z.sfx "${{ matrix.artifact_name }}.exe" "${{ matrix.artifact_path }}\*"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.artifact_path }}
+          path: ${{ matrix.artifact_name }}.*
           if-no-files-found: error
 
   release:
@@ -78,21 +102,8 @@ jobs:
       - uses: actions/download-artifact@v5
         with:
           path: artifacts
-      - name: Package artifacts
-        shell: bash
-        run: |
-          cd artifacts
-          for dir in */; do
-            name="${dir%/}"
-            if [ -d "$dir" ]; then
-              cd "$dir"
-              zip -r "../${name}.zip" .
-              cd ..
-              rm -rf "$dir"
-            fi
-          done
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.zip
+          files: artifacts/**/*
           generate_release_notes: true
