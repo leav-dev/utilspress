@@ -69,6 +69,8 @@ jobs:
           makeself "${{ matrix.artifact_path }}" "${{ matrix.artifact_name }}.run" \
             "utilspress — Image and PDF processor" \
             ./utilspress
+          chmod +r "${{ matrix.artifact_name }}.run"
+          chmod +r "${{ matrix.artifact_name }}.run"
 
       - name: Package macOS (.dmg)
         if: runner.os == 'macOS'
