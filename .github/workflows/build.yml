@@ -87,11 +87,20 @@ jobs:
           exec "$HERE/utilspress" "$@"
           APPRUN_EOF
           chmod +x AppDir/AppRun
-          # Generate a minimal icon
+          # Generate a minimal icon (pure Python, no deps)
           python3 -c "
-          from PIL import Image
-          img = Image.new('RGBA', (256, 256), (64, 128, 255, 255))
-          img.save('AppDir/utilspress.png')
+          import struct, zlib
+          w, h = 256, 256
+          raw = b''
+          for y in range(h):
+              raw += b'\x00' + b''.join(struct.pack('BBBB', 64, 128, 255, 255) for _ in range(w))
+          def chunk(t, d):
+              return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+          ihdr = struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)
+          idat = zlib.compress(raw)
+          png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr) + chunk(b'IDAT', idat) + chunk(b'IEND', b'')
+          with open('AppDir/utilspress.png', 'wb') as f:
+              f.write(png)
           "
           # Download appimagetool
           wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool
