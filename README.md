@@ -30,7 +30,7 @@ Descargá la última versión desde [Releases](https://github.com/leav-dev/utils
 
 | Plataforma | Archivo | Uso |
 |---|---|---|
-| **Linux** | `utilspress-linux.run` | `./utilspress-linux.run` |
+| **Linux** | `utilspress-linux.AppImage` | Doble clic → "Run" |
 | **macOS** | `utilspress-macos.dmg` | Abrir y arrastrar a Applications |
 | **Windows** | `utilspress-windows.exe` | Doble clic para extraer y ejecutar |
 
