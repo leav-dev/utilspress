@@ -16,6 +16,7 @@ def build_pdf_tab(page: ft.Page):
     path_label = ft.Text("Ningún archivo seleccionado", size=13, color=ft.Colors.GREY_600)
     progress = ft.ProgressBar(visible=False, width=600)
     results_area = ft.Column()
+    overwrite_cb = ft.Checkbox(label="Reemplazar archivos originales", value=False)
 
     def set_paths(paths):
         state["paths"] = paths
@@ -52,9 +53,11 @@ def build_pdf_tab(page: ft.Page):
     def _compress():
         acc = []
 
+        in_place = overwrite_cb.value
+        output = "Archivos originales (reemplazados)" if in_place else f"{OUTPUT_BASE}"
+
         def on_progress(result):
             acc.append(result)
-            output = f"{OUTPUT_BASE}"
             results_area.controls = [build_results_table(acc, "pdf", output)]
             page.update()
 
@@ -62,10 +65,10 @@ def build_pdf_tab(page: ft.Page):
             state["paths"],
             quality=preset_dropdown.value,
             on_progress=on_progress,
+            in_place=in_place,
         )
         progress.visible = False
         if not acc:
-            output = f"{OUTPUT_BASE}"
             results_area.controls = [build_results_table(results, "pdf", output)]
             page.update()
 
@@ -86,6 +89,7 @@ def build_pdf_tab(page: ft.Page):
         ft.Divider(height=16, color=ft.Colors.TRANSPARENT),
         ft.Text("Preset de compresión", size=13, weight=ft.FontWeight.W_500),
         preset_dropdown,
+        overwrite_cb,
         ft.Divider(height=12, color=ft.Colors.TRANSPARENT),
         ft.Button("Comprimir PDF", icon=ft.Icons.COMPRESS, on_click=on_compress),
         progress,

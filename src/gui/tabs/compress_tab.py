@@ -22,6 +22,7 @@ def build_compress_tab(page: ft.Page):
     path_label = ft.Text("Ningún archivo seleccionado", size=13, color=ft.Colors.GREY_600)
     progress = ft.ProgressBar(visible=False, width=600)
     results_area = ft.Column()
+    overwrite_cb = ft.Checkbox(label="Reemplazar archivos originales", value=False)
 
     def set_paths(paths):
         state["paths"] = paths
@@ -58,9 +59,11 @@ def build_compress_tab(page: ft.Page):
     def _compress():
         acc = []
 
+        in_place = overwrite_cb.value
+        output = "Archivos originales (reemplazados)" if in_place else f"{OUTPUT_BASE}"
+
         def on_progress(result):
             acc.append(result)
-            output = f"{OUTPUT_BASE}"
             results_area.controls = [build_results_table(acc, "compress", output)]
             page.update()
 
@@ -69,10 +72,10 @@ def build_compress_tab(page: ft.Page):
             quality=int(quality_slider.value),
             compress_level=int(compress_slider.value),
             on_progress=on_progress,
+            in_place=in_place,
         )
         progress.visible = False
         if not acc:
-            output = f"{OUTPUT_BASE}"
             results_area.controls = [build_results_table(results, "compress", output)]
             page.update()
 
@@ -95,6 +98,7 @@ def build_compress_tab(page: ft.Page):
         ft.Row([quality_slider, quality_value], vertical_alignment=ft.CrossAxisAlignment.CENTER),
         ft.Text("Compresión PNG (0 = sin compresión, 9 = máxima)", size=13, weight=ft.FontWeight.W_500),
         ft.Row([compress_slider, compress_value], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+        overwrite_cb,
         ft.Divider(height=12, color=ft.Colors.TRANSPARENT),
         ft.Button("Comprimir", icon=ft.Icons.COMPRESS, on_click=on_compress),
         progress,

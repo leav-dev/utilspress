@@ -11,6 +11,7 @@ def build_resize_tab(page: ft.Page):
     width_input = ft.TextField(label="Ancho (px)", value="1920", width=150)
     height_input = ft.TextField(label="Alto (px)", value="1080", width=150)
     aspect_cb = ft.Checkbox(label="Mantener relación de aspecto", value=True)
+    overwrite_cb = ft.Checkbox(label="Reemplazar archivos originales", value=False)
     path_label = ft.Text("Ningún archivo seleccionado", size=13, color=ft.Colors.GREY_600)
     progress = ft.ProgressBar(visible=False, width=600)
     results_area = ft.Column()
@@ -50,9 +51,11 @@ def build_resize_tab(page: ft.Page):
     def _resize():
         acc = []
 
+        in_place = overwrite_cb.value
+        output = "Archivos originales (reemplazados)" if in_place else f"{OUTPUT_BASE}"
+
         def on_progress(result):
             acc.append(result)
-            output = f"{OUTPUT_BASE}"
             results_area.controls = [build_results_table(acc, "resize", output)]
             page.update()
 
@@ -63,10 +66,10 @@ def build_resize_tab(page: ft.Page):
             w, h,
             maintain_aspect=aspect_cb.value,
             on_progress=on_progress,
+            in_place=in_place,
         )
         progress.visible = False
         if not acc:
-            output = f"{OUTPUT_BASE}"
             results_area.controls = [build_results_table(results, "resize", output)]
             page.update()
 
@@ -98,6 +101,7 @@ def build_resize_tab(page: ft.Page):
         ft.Text("Dimensiones", size=13, weight=ft.FontWeight.W_500),
         ft.Row([width_input, height_input]),
         aspect_cb,
+        overwrite_cb,
         ft.Divider(height=12, color=ft.Colors.TRANSPARENT),
         ft.Button("Redimensionar", icon=ft.Icons.ASPECT_RATIO, on_click=on_resize),
         progress,

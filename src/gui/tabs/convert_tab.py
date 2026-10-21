@@ -20,6 +20,7 @@ def build_convert_tab(page: ft.Page):
     path_label = ft.Text("Ningún archivo seleccionado", size=13, color=ft.Colors.GREY_600)
     progress = ft.ProgressBar(visible=False, width=600)
     results_area = ft.Column()
+    overwrite_cb = ft.Checkbox(label="Reemplazar archivos originales", value=False)
 
     def set_paths(paths):
         state["paths"] = paths
@@ -56,9 +57,11 @@ def build_convert_tab(page: ft.Page):
     def _convert():
         acc = []
 
+        in_place = overwrite_cb.value
+        output = "Archivos originales (reemplazados)" if in_place else f"{OUTPUT_BASE}"
+
         def on_progress(result):
             acc.append(result)
-            output = f"{OUTPUT_BASE}"
             results_area.controls = [build_results_table(acc, "convert", output)]
             page.update()
 
@@ -66,10 +69,10 @@ def build_convert_tab(page: ft.Page):
             state["paths"],
             format_dd.value,
             on_progress=on_progress,
+            in_place=in_place,
         )
         progress.visible = False
         if not acc:
-            output = f"{OUTPUT_BASE}"
             results_area.controls = [build_results_table(results, "convert", output)]
             page.update()
 
@@ -90,6 +93,7 @@ def build_convert_tab(page: ft.Page):
         ft.Divider(height=16, color=ft.Colors.TRANSPARENT),
         ft.Text("Formato destino", size=13, weight=ft.FontWeight.W_500),
         format_dd,
+        overwrite_cb,
         ft.Divider(height=12, color=ft.Colors.TRANSPARENT),
         ft.Button("Convertir", icon=ft.Icons.SWAP_HORIZ, on_click=on_convert),
         progress,

@@ -120,11 +120,11 @@ jobs:
             -ov -format UDZO \
             "${{ matrix.artifact_name }}.dmg"
 
-      - name: Package Windows (.exe)
+      - name: Package Windows (.zip)
         if: runner.os == 'Windows'
-        shell: cmd
+        shell: pwsh
         run: |
-          7z a -sfx ${{ matrix.artifact_name }}.exe ${{ matrix.artifact_path }}\*
+          Compress-Archive -Path "${{ matrix.artifact_path }}\*" -DestinationPath "${{ matrix.artifact_name }}.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5

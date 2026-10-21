@@ -37,7 +37,7 @@ def _collect_pdfs(path):
     return []
 
 
-def compress_pdfs(paths, output_dir=None, quality="ebook", on_progress=None):
+def compress_pdfs(paths, output_dir=None, quality="ebook", on_progress=None, in_place=False):
     if isinstance(paths, str):
         paths = _collect_pdfs(paths)
     else:
@@ -46,10 +46,11 @@ def compress_pdfs(paths, output_dir=None, quality="ebook", on_progress=None):
             expanded.extend(_collect_pdfs(p))
         paths = expanded
 
-    if output_dir is None:
+    if output_dir is None and not in_place:
         output_dir = OUTPUT_BASE
 
-    os.makedirs(output_dir, exist_ok=True)
+    if not in_place:
+        os.makedirs(output_dir, exist_ok=True)
 
     params = PRESETS.get(quality, PRESETS["ebook"])
     results = []
@@ -73,12 +74,21 @@ def compress_pdfs(paths, output_dir=None, quality="ebook", on_progress=None):
                 on_progress(result)
             continue
 
-        output_path = os.path.join(output_dir, filename)
+        if in_place:
+            output_path = path
+        else:
+            output_path = os.path.join(output_dir, filename)
 
         try:
             doc = fitz.open(path)
-            doc.save(output_path, **params)
-            doc.close()
+            if in_place:
+                tmp_path = output_path + ".utilspress-tmp"
+                doc.save(tmp_path, **params)
+                doc.close()  # release the source handle before replacing (Windows)
+                os.replace(tmp_path, output_path)
+            else:
+                doc.save(output_path, **params)
+                doc.close()
         except Exception:
             result = {
                 "file": filename,

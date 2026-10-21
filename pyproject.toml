@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 utilspress = "src.main:entry_point"
+utilspress-cli = "src.cli:main"
 
 [tool.flet.app]
 path = "src"

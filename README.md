@@ -32,14 +32,37 @@ Descargá la última versión desde [Releases](https://github.com/leav-dev/utils
 |---|---|---|
 | **Linux** | `utilspress-linux.AppImage` | Doble clic → "Run" |
 | **macOS** | `utilspress-macos.dmg` | Abrir y arrastrar a Applications |
-| **Windows** | `utilspress-windows.exe` | Doble clic para extraer y ejecutar |
+| **Windows** | `utilspress-windows.zip` | Extraer y ejecutar `utilspress.exe` |
 
 ### Con Python y pip
 
 ```bash
 pip install utilspress
-utilspress
+utilspress         # interfaz grafica
+utilspress-cli --help   # version terminal
 ```
+
+### CLI (terminal)
+
+Para quienes prefieren la terminal: por defecto **reemplaza los archivos
+originales** (destructivo). Con `-o` escribís a una carpeta y conservás
+los originales. Todos los comandos aceptan archivos sueltos o carpetas:
+
+```bash
+utilspress-cli compress foto.jpg carpeta/ --quality 85
+utilspress-cli convert foto.png --to webp
+utilspress-cli resize foto.jpg --width 800 --height 600
+utilspress-cli pdf doc.pdf --preset ebook
+utilspress-cli zip ./mi-carpeta -o ./mi-carpeta.zip --level 6
+# Conservar originales:
+utilspress-cli compress foto.jpg -o ./salida
+```
+
+### Reemplazar originales (GUI)
+
+Cada pestaña (Comprimir, Convertir, Redimensionar, PDF) tiene el checkbox
+**"Reemplazar archivos originales"**. Apagado (defecto) guarda una copia
+en `~/Desktop`; encendido sobrescribe los archivos en su lugar.
 
 ## 🛠️ Build desde código
 

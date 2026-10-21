@@ -139,7 +139,22 @@ def comprimir():
 
 # ── Nuevas funciones puras (Web GUI) ─────────────────────────────────
 
-def compress_images(paths, output_dir=None, quality=None, compress_level=None, on_progress=None):
+def _overwrite_with_tmp(img, final_path, save_args, fmt=None):
+    """Save to a temp file and atomically replace final_path.
+
+    The temp round-trip avoids truncating the source while Pillow still
+    holds it open (required on Windows, where open files can't be replaced).
+    """
+    tmp_path = final_path + ".utilspress-tmp"
+    kwargs = dict(save_args)
+    if fmt:
+        kwargs["format"] = fmt
+    img.save(tmp_path, **kwargs)
+    img.close()  # release the source handle before replacing (Windows)
+    os.replace(tmp_path, final_path)
+
+
+def compress_images(paths, output_dir=None, quality=None, compress_level=None, on_progress=None, in_place=False):
     if isinstance(paths, str):
         paths = _collect_images(paths)
     else:
@@ -147,9 +162,10 @@ def compress_images(paths, output_dir=None, quality=None, compress_level=None, o
         for p in paths:
             expanded.extend(_collect_images(p))
         paths = expanded
-    if output_dir is None:
+    if output_dir is None and not in_place:
         output_dir = OUTPUT_BASE
-    os.makedirs(output_dir, exist_ok=True)
+    if not in_place:
+        os.makedirs(output_dir, exist_ok=True)
 
     results = []
     for path in paths:
@@ -158,6 +174,8 @@ def compress_images(paths, output_dir=None, quality=None, compress_level=None, o
         original_size = os.path.getsize(path)
 
         img = pl.open(path)
+        img.load()
+        pillow_format = img.format
         save_args = {"optimize": True}
 
         if ext in ("JPEG", "JPG"):
@@ -167,8 +185,13 @@ def compress_images(paths, output_dir=None, quality=None, compress_level=None, o
         elif ext == "WEBP":
             save_args["quality"] = quality if quality is not None else 80
 
-        output_path = os.path.join(output_dir, filename)
-        img.save(output_path, **save_args)
+        if in_place:
+            output_path = path
+            _overwrite_with_tmp(img, output_path, save_args, fmt=pillow_format)
+        else:
+            output_path = os.path.join(output_dir, filename)
+            img.save(output_path, **save_args)
+            img.close()
         final_size = os.path.getsize(output_path)
         savings = 100 * (1 - final_size / original_size) if original_size > 0 else 0
 
@@ -187,7 +210,7 @@ def compress_images(paths, output_dir=None, quality=None, compress_level=None, o
     return results
 
 
-def convert_images(paths, target_format, output_dir=None, on_progress=None):
+def convert_images(paths, target_format, output_dir=None, on_progress=None, in_place=False):
     if isinstance(paths, str):
         paths = _collect_images(paths)
     else:
@@ -195,9 +218,14 @@ def convert_images(paths, target_format, output_dir=None, on_progress=None):
         for p in paths:
             expanded.extend(_collect_images(p))
         paths = expanded
-    if output_dir is None:
+    if output_dir is None and not in_place:
         output_dir = OUTPUT_BASE
-    os.makedirs(output_dir, exist_ok=True)
+    if not in_place:
+        os.makedirs(output_dir, exist_ok=True)
+
+    fmt = target_format.upper()
+    if fmt == "JPG":
+        fmt = "JPEG"
 
     results = []
     for path in paths:
@@ -206,12 +234,22 @@ def convert_images(paths, target_format, output_dir=None, on_progress=None):
         original_size = os.path.getsize(path)
 
         img = pl.open(path)
-        output_filename = f"{name_no_ext}.{target_format.lower()}"
-        output_path = os.path.join(output_dir, output_filename)
+        img.load()
+        output_filename = f"{name_no_ext}.{fmt.lower()}"
+        if in_place:
+            output_path = os.path.join(os.path.dirname(path), output_filename)
+        else:
+            output_path = os.path.join(output_dir, output_filename)
 
-        if target_format.upper() == "JPEG" and img.mode in ("RGBA", "P", "LA"):
+        if fmt == "JPEG" and img.mode in ("RGBA", "P", "LA"):
             img = img.convert("RGB")
-        img.save(output_path, format=target_format.upper())
+        if in_place:
+            _overwrite_with_tmp(img, output_path, {}, fmt=fmt)
+            if os.path.abspath(output_path) != os.path.abspath(path):
+                os.remove(path)
+        else:
+            img.save(output_path, format=fmt)
+            img.close()
         final_size = os.path.getsize(output_path)
 
         orig_str = _size_str(original_size)
@@ -231,7 +269,7 @@ def convert_images(paths, target_format, output_dir=None, on_progress=None):
     return results
 
 
-def resize_images(paths, width, height, output_dir=None, maintain_aspect=True, on_progress=None):
+def resize_images(paths, width, height, output_dir=None, maintain_aspect=True, on_progress=None, in_place=False):
     if isinstance(paths, str):
         paths = _collect_images(paths)
     else:
@@ -239,9 +277,10 @@ def resize_images(paths, width, height, output_dir=None, maintain_aspect=True, o
         for p in paths:
             expanded.extend(_collect_images(p))
         paths = expanded
-    if output_dir is None:
+    if output_dir is None and not in_place:
         output_dir = OUTPUT_BASE
-    os.makedirs(output_dir, exist_ok=True)
+    if not in_place:
+        os.makedirs(output_dir, exist_ok=True)
 
     results = []
     for path in paths:
@@ -249,6 +288,8 @@ def resize_images(paths, width, height, output_dir=None, maintain_aspect=True, o
         original_size = os.path.getsize(path)
 
         img = pl.open(path)
+        img.load()
+        pillow_format = img.format
         orig_w, orig_h = img.size
 
         if maintain_aspect:
@@ -256,8 +297,13 @@ def resize_images(paths, width, height, output_dir=None, maintain_aspect=True, o
         else:
             img = img.resize((width, height), pl.LANCZOS)
 
-        output_path = os.path.join(output_dir, filename)
-        img.save(output_path)
+        if in_place:
+            output_path = path
+            _overwrite_with_tmp(img, output_path, {}, fmt=pillow_format)
+        else:
+            output_path = os.path.join(output_dir, filename)
+            img.save(output_path)
+            img.close()
         final_size = os.path.getsize(output_path)
 
         orig_str = _size_str(original_size)
