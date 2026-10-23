@@ -25,12 +25,17 @@ def _size_str(bytes_val):
 
 
 def _collect_pdfs(path):
+    """Collect PDFs from a single file or a directory.
+
+    Directories are scanned recursively: PDFs in the folder itself and in
+    subfolders at any depth (children, grandchildren, ...) are included.
+    """
     if os.path.isdir(path):
         pdfs = []
-        for entry in os.listdir(path):
-            full = os.path.join(path, entry)
-            if os.path.isfile(full) and entry.lower().endswith(".pdf"):
-                pdfs.append(full)
+        for dirpath, _, filenames in os.walk(path):
+            for entry in filenames:
+                if entry.lower().endswith(".pdf"):
+                    pdfs.append(os.path.join(dirpath, entry))
         return pdfs
     elif os.path.isfile(path):
         return [path]
@@ -39,12 +44,19 @@ def _collect_pdfs(path):
 
 def compress_pdfs(paths, output_dir=None, quality="ebook", on_progress=None, in_place=False):
     if isinstance(paths, str):
-        paths = _collect_pdfs(paths)
-    else:
-        expanded = []
-        for p in paths:
-            expanded.extend(_collect_pdfs(p))
-        paths = expanded
+        paths = [paths]
+    # Keep the source root of each directory input so the relative folder
+    # structure can be mirrored under output_dir (avoids name collisions
+    # between same-named PDFs in different subfolders).
+    collected = []  # [(source_root or None, file_path)]
+    for p in paths:
+        if os.path.isdir(p):
+            for f in _collect_pdfs(p):
+                collected.append((p, f))
+        else:
+            for f in _collect_pdfs(p):
+                collected.append((None, f))
+    paths = collected
 
     if output_dir is None and not in_place:
         output_dir = OUTPUT_BASE
@@ -55,7 +67,7 @@ def compress_pdfs(paths, output_dir=None, quality="ebook", on_progress=None, in_
     params = PRESETS.get(quality, PRESETS["ebook"])
     results = []
 
-    for path in paths:
+    for root, path in paths:
         filename = os.path.basename(path)
         original_size = os.path.getsize(path)
 
@@ -76,6 +88,13 @@ def compress_pdfs(paths, output_dir=None, quality="ebook", on_progress=None, in_
 
         if in_place:
             output_path = path
+        elif root is not None:
+            # Mirror the subfolder structure under output_dir.
+            rel = os.path.relpath(path, root)
+            output_path = os.path.join(output_dir, rel)
+            parent = os.path.dirname(output_path)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
         else:
             output_path = os.path.join(output_dir, filename)
 

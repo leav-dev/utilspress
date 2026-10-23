@@ -10,8 +10,9 @@ Usage:
     utilspress-cli pdf <path...> [--preset screen|ebook|printer|prepress] [-o DIR]
     utilspress-cli zip <folder> [--output FILE.zip] [--level 0-9]
 
-Each <path> can be a file or a directory (directories are scanned
-non-recursively for matching files, same as the GUI).
+Each <path> can be a file or a directory (PDF folders are scanned
+recursively including subfolders, image folders non-recursively,
+same as the GUI).
 """
 
 import argparse
