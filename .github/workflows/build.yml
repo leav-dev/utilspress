@@ -27,12 +27,12 @@ jobs:
             artifact_path: build/linux
             needs_linux_deps: true
 
-          - name: macOS
-            runner: macos-latest
-            build_cmd: flet build macos
-            artifact_name: utilspress-macos
-            artifact_path: build/macos
-            needs_linux_deps: false
+          # - name: macOS
+          #   runner: macos-latest
+          #   build_cmd: flet build macos
+          #   artifact_name: utilspress-macos
+          #   artifact_path: build/macos
+          #   needs_linux_deps: false
 
           - name: Windows
             runner: windows-latest
@@ -111,14 +111,14 @@ jobs:
           ./squashfs-root/AppRun --no-appstream AppDir "${{ matrix.artifact_name }}.AppImage"
           chmod +r "${{ matrix.artifact_name }}.AppImage"
 
-      - name: Package macOS (.dmg)
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          hdiutil create -volname "utilspress" \
-            -srcfolder "${{ matrix.artifact_path }}" \
-            -ov -format UDZO \
-            "${{ matrix.artifact_name }}.dmg"
+      # - name: Package macOS (.dmg)
+      #   if: runner.os == 'macOS'
+      #   shell: bash
+      #   run: |
+      #     hdiutil create -volname "utilspress" \
+      #       -srcfolder "${{ matrix.artifact_path }}" \
+      #       -ov -format UDZO \
+      #       "${{ matrix.artifact_name }}.dmg"
 
       - name: Package Windows (.zip)
         if: runner.os == 'Windows'
