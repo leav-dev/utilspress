@@ -30,7 +30,8 @@ Descargá la última versión desde [Releases](https://github.com/leav-dev/utils
 
 | Plataforma | Archivo | Uso |
 |---|---|---|
-| **Linux** | `utilspress-linux.AppImage` | Doble clic → "Run" |
+| **Linux** | `utilspress-linux.AppImage` | Doble clic → "Run", sin dependencias (bundlea GTK vía linuxdeploy) |
+| **Linux (sin FUSE)** | `utilspress-linux.tar.gz` | Alternativa sin FUSE: `tar xzf utilspress-linux.tar.gz && ./utilspress` |
 | **macOS** | `utilspress-macos.dmg` | Abrir y arrastrar a Applications |
 | **Windows** | `utilspress-windows.zip` | Extraer y ejecutar `utilspress.exe` |
 
