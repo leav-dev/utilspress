@@ -19,4 +19,5 @@
 6. [ ] Verificar (imports, checks funcionales, `flet pack --help`) y cerrar.
 
 ## Evidencia
-- (worker: anotar commits, comandos corridos y resultados)
+- Commit `87ffd02` en `main` + tag `v0.4.0` pusheados (dispara build + release en CI).
+- Verificación local: `compileall` OK, imports OK, helper detecta `~/Escritorio` y `~/Documentos` en máquina ES.
