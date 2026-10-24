@@ -1,7 +1,12 @@
 import os
 import fitz
 
-OUTPUT_BASE = os.path.join(os.path.expanduser("~"), "Desktop")
+try:
+    from utils.paths import get_output_base
+except ImportError:  # instalado como paquete `src.*`
+    from src.utils.paths import get_output_base
+
+OUTPUT_BASE = get_output_base()
 
 PRESETS = {
     "screen": {"garbage": 4, "deflate": True, "deflate_images": True, "deflate_fonts": True, "clean": True},

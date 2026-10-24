@@ -34,9 +34,12 @@ jobs:
 
           - name: Windows
             runner: windows-latest
-            build_cmd: flet build windows
+            # Un solo .exe: `flet pack` (PyInstaller) es onefile por defecto;
+            # NO pasar -D/--onedir. Requiere el paquete `pyinstaller`
+            # (ver dependencias en pyproject.toml).
+            build_cmd: flet pack src/main.py --name utilspress
             artifact_name: utilspress-windows
-            artifact_path: build/windows
+            artifact_path: dist/utilspress.exe
             needs_linux_deps: false
 
     steps:
@@ -118,11 +121,15 @@ jobs:
       #       -ov -format UDZO \
       #       "${{ matrix.artifact_name }}.dmg"
 
-      - name: Package Windows (.zip)
+      - name: Package Windows (single exe)
+        # `flet pack` ya deja dist/utilspress.exe (onefile); se copia a la
+        # raiz con el nombre del artefacto para que el paso de upload
+        # (compartido con Linux) no se toque.
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path "${{ matrix.artifact_path }}\*" -DestinationPath "${{ matrix.artifact_name }}.zip"
+          Copy-Item "${{ matrix.artifact_path }}" -Destination "${{ matrix.artifact_name }}.exe"
+          Get-ChildItem "${{ matrix.artifact_name }}.exe"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5

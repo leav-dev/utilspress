@@ -11,6 +11,10 @@ dependencies = [
     "pillow",
     "flet>=0.28",
     "PyMuPDF",
+    # Requerido por `flet pack` (flet-cli no lo instala solo): genera el .exe
+    # unico de Windows (verificado: sin el, pack falla con
+    # "Please install PyInstaller module to use flet pack command").
+    "pyinstaller",
 ]
 
 [project.scripts]

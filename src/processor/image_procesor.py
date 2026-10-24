@@ -1,7 +1,12 @@
 from PIL import Image as pl
 import os
 
-OUTPUT_BASE = os.path.join(os.path.expanduser("~"), "Desktop")
+try:
+    from utils.paths import get_output_base
+except ImportError:  # instalado como paquete `src.*`
+    from src.utils.paths import get_output_base
+
+OUTPUT_BASE = get_output_base()
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
