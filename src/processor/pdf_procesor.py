@@ -1,3 +1,4 @@
+import concurrent.futures
 import os
 import fitz
 
@@ -29,25 +30,125 @@ def _size_str(bytes_val):
     return f"{bytes_val / 1024:.2f} KB"
 
 
+# Archivos comprimidos: se ignoran por completo (ni se listan ni se tocan).
+# Solo se procesan PDFs sueltos. Incluye doble extension (doc.pdf.zip)
+# y deteccion por firma para PDFs mal nombrados que en realidad son ZIP.
+_ARCHIVE_EXTS = {".zip", ".rar", ".7z", ".tar", ".gz", ".bz2",
+                  ".xz", ".cbz", ".cbr"}
+_ARCHIVE_MAGICS = (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08",
+                     b"Rar!", b"7z\xbc\xaf\x27\x1c")
+
+
+def _is_archive(path):
+    """True si es un archivo comprimido (por extension o firma). Nunca lanza."""
+    try:
+        lowered = path.lower()
+        for ext in _ARCHIVE_EXTS:
+            if lowered.endswith(ext):
+                return True
+        with open(path, "rb") as fh:
+            head = fh.read(4)
+        return head.startswith(_ARCHIVE_MAGICS)
+    except Exception:
+        return False
+
+
 def _collect_pdfs(path):
     """Collect PDFs from a single file or a directory.
 
     Directories are scanned recursively: PDFs in the folder itself and in
     subfolders at any depth (children, grandchildren, ...) are included.
+    Compressed archives (.zip, .rar, .7z, ...) are ignored entirely:
+    neither listed nor opened, even if passed directly.
     """
     if os.path.isdir(path):
         pdfs = []
         for dirpath, _, filenames in os.walk(path):
             for entry in filenames:
                 if entry.lower().endswith(".pdf"):
-                    pdfs.append(os.path.join(dirpath, entry))
+                    full = os.path.join(dirpath, entry)
+                    if not _is_archive(full):
+                        pdfs.append(full)
         return pdfs
     elif os.path.isfile(path):
+        if _is_archive(path):
+            return []
         return [path]
     return []
 
 
-def compress_pdfs(paths, output_dir=None, quality="ebook", on_progress=None, in_place=False):
+def _resolve_jobs(jobs):
+    """Resolve worker count: None/0 means auto, 1 is sequential legacy."""
+    if jobs is None or jobs == 0:
+        return min(8, os.cpu_count() or 4)
+    return max(1, int(jobs))
+
+
+def _compress_single(root, path, output_dir, in_place, params, quality):
+    """Compress a single PDF. Thread-safe: no shared state, no callbacks."""
+    filename = os.path.basename(path)
+    original_size = os.path.getsize(path)
+
+    if original_size == 0:
+        return {
+            "file": filename,
+            "original_size": 0,
+            "original_size_str": "0 B",
+            "final_size": 0,
+            "final_size_str": "0 B",
+            "savings_percent": 0,
+            "preset": quality,
+        }
+
+    if in_place:
+        output_path = path
+    elif root is not None:
+        # Mirror the subfolder structure under output_dir.
+        rel = os.path.relpath(path, root)
+        output_path = os.path.join(output_dir, rel)
+        parent = os.path.dirname(output_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+    else:
+        output_path = os.path.join(output_dir, filename)
+
+    try:
+        doc = fitz.open(path)
+        if in_place:
+            tmp_path = output_path + ".utilspress-tmp"
+            doc.save(tmp_path, **params)
+            doc.close()  # release the source handle before replacing (Windows)
+            os.replace(tmp_path, output_path)
+        else:
+            doc.save(output_path, **params)
+            doc.close()
+    except Exception:
+        return {
+            "file": filename,
+            "original_size": original_size,
+            "original_size_str": _size_str(original_size),
+            "final_size": original_size,
+            "final_size_str": _size_str(original_size),
+            "savings_percent": 0,
+            "preset": quality,
+            "error": "Error al comprimir",
+        }
+
+    final_size = os.path.getsize(output_path)
+    savings = 100 * (1 - final_size / original_size) if original_size > 0 else 0
+
+    return {
+        "file": filename,
+        "original_size": original_size,
+        "original_size_str": _size_str(original_size),
+        "final_size": final_size,
+        "final_size_str": _size_str(final_size),
+        "savings_percent": round(savings, 2),
+        "preset": quality,
+    }
+
+
+def compress_pdfs(paths, output_dir=None, quality="ebook", on_progress=None, in_place=False, jobs=None):
     if isinstance(paths, str):
         paths = [paths]
     # Keep the source root of each directory input so the relative folder
@@ -70,79 +171,30 @@ def compress_pdfs(paths, output_dir=None, quality="ebook", on_progress=None, in_
         os.makedirs(output_dir, exist_ok=True)
 
     params = PRESETS.get(quality, PRESETS["ebook"])
-    results = []
+    workers = _resolve_jobs(jobs)
 
-    for root, path in paths:
-        filename = os.path.basename(path)
-        original_size = os.path.getsize(path)
-
-        if original_size == 0:
-            result = {
-                "file": filename,
-                "original_size": 0,
-                "original_size_str": "0 B",
-                "final_size": 0,
-                "final_size_str": "0 B",
-                "savings_percent": 0,
-                "preset": quality,
-            }
+    if workers == 1:
+        # Sequential legacy path: ordered results, ordered callbacks.
+        results = []
+        for root, path in paths:
+            result = _compress_single(root, path, output_dir, in_place, params, quality)
             results.append(result)
             if on_progress:
                 on_progress(result)
-            continue
+        return results
 
-        if in_place:
-            output_path = path
-        elif root is not None:
-            # Mirror the subfolder structure under output_dir.
-            rel = os.path.relpath(path, root)
-            output_path = os.path.join(output_dir, rel)
-            parent = os.path.dirname(output_path)
-            if parent:
-                os.makedirs(parent, exist_ok=True)
-        else:
-            output_path = os.path.join(output_dir, filename)
-
-        try:
-            doc = fitz.open(path)
-            if in_place:
-                tmp_path = output_path + ".utilspress-tmp"
-                doc.save(tmp_path, **params)
-                doc.close()  # release the source handle before replacing (Windows)
-                os.replace(tmp_path, output_path)
-            else:
-                doc.save(output_path, **params)
-                doc.close()
-        except Exception:
-            result = {
-                "file": filename,
-                "original_size": original_size,
-                "original_size_str": _size_str(original_size),
-                "final_size": original_size,
-                "final_size_str": _size_str(original_size),
-                "savings_percent": 0,
-                "preset": quality,
-                "error": "Error al comprimir",
-            }
-            results.append(result)
-            if on_progress:
-                on_progress(result)
-            continue
-
-        final_size = os.path.getsize(output_path)
-        savings = 100 * (1 - final_size / original_size) if original_size > 0 else 0
-
-        result = {
-            "file": filename,
-            "original_size": original_size,
-            "original_size_str": _size_str(original_size),
-            "final_size": final_size,
-            "final_size_str": _size_str(final_size),
-            "savings_percent": round(savings, 2),
-            "preset": quality,
+    # Parallel path: submit by index, return results in input order
+    # but fire on_progress as each file completes.
+    ordered = [None] * len(paths)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        future_to_index = {
+            pool.submit(_compress_single, root, path, output_dir, in_place, params, quality): i
+            for i, (root, path) in enumerate(paths)
         }
-        results.append(result)
-        if on_progress:
-            on_progress(result)
-
-    return results
+        for future in concurrent.futures.as_completed(future_to_index):
+            i = future_to_index[future]
+            result = future.result()
+            ordered[i] = result
+            if on_progress:
+                on_progress(result)
+    return ordered

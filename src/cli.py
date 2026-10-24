@@ -39,6 +39,21 @@ def _describe_dest(output_dir):
     return output_dir if output_dir else "originales (reemplazados)"
 
 
+def _format_freed(bytes_val):
+    if bytes_val >= 1024 ** 3:
+        return f"{bytes_val / (1024 ** 3):.2f} GB"
+    if bytes_val >= 1024 * 1024:
+        return f"{bytes_val / (1024 * 1024):.2f} MB"
+    if bytes_val >= 1024:
+        return f"{bytes_val / 1024:.2f} KB"
+    return f"{int(bytes_val)} B"
+
+
+def _total_freed_str(results):
+    total = sum(r.get("original_size", 0) - r.get("final_size", 0) for r in results)
+    return _format_freed(max(0, total))
+
+
 def _print_image_result(r, kind):
     if kind == "convert":
         print(f"  {r['file']} -> {r['new_file']} "
@@ -70,6 +85,7 @@ def cmd_compress(args):
     print(f"Se procesaron {len(results)} imagen(es) en "
           f"{_describe_dest(args.output_dir)}. "
           f"Ahorro promedio: {avg:.2f}%")
+    print(f"Espacio liberado: {_total_freed_str(results)}")
     return 0
 
 
@@ -88,6 +104,7 @@ def cmd_convert(args):
         _print_image_result(r, "convert")
     print(f"Se convirtieron {len(results)} imagen(es) a {args.to.upper()} "
           f"en {_describe_dest(args.output_dir)}.")
+    print(f"Diferencia total: {_total_freed_str(results)}")
     return 0
 
 
@@ -108,6 +125,7 @@ def cmd_resize(args):
         _print_image_result(r, "resize")
     print(f"Se redimensionaron {len(results)} imagen(es) en "
           f"{_describe_dest(args.output_dir)}.")
+    print(f"Diferencia total: {_total_freed_str(results)}")
     return 0
 
 
@@ -118,6 +136,7 @@ def cmd_pdf(args):
         output_dir=args.output_dir,
         quality=args.preset,
         in_place=in_place,
+        jobs=args.jobs,
     )
     if not results:
         print("No se encontraron PDFs para comprimir.")
@@ -129,6 +148,7 @@ def cmd_pdf(args):
               f"ahorro {r['savings_percent']}%){extra}")
     print(f"Se procesaron {len(results)} PDF(s) con preset '{args.preset}' "
           f"en {_describe_dest(args.output_dir)}.")
+    print(f"Espacio liberado: {_total_freed_str(results)}")
     return 0
 
 
@@ -142,6 +162,7 @@ def cmd_zip(args):
           f"({result['original_size_str']} -> {result['final_size_str']}, "
           f"ahorro {result['savings_percent']}%)")
     print(f"Carpeta comprimida en {result['output_path']}.")
+    print(f"Espacio liberado: {_total_freed_str([result])}")
     return 0
 
 
@@ -183,6 +204,8 @@ def build_parser():
     c.add_argument("--preset", default="ebook", choices=sorted(PRESETS),
                    help="Preset de compresion (defecto: ebook).")
     c.add_argument("-o", "--output-dir", default=None, help=KEEP_ORIGINALS_HELP)
+    c.add_argument("-j", "--jobs", type=int, default=0,
+                   help="Trabajadores paralelos (0=auto, 1=secuencial).")
     c.set_defaults(func=cmd_pdf)
 
     c = sub.add_parser("zip", help="Comprime una carpeta a ZIP.")

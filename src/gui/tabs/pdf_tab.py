@@ -66,6 +66,7 @@ def build_pdf_tab(page: ft.Page):
             quality=preset_dropdown.value,
             on_progress=on_progress,
             in_place=in_place,
+            jobs=0,
         )
         progress.visible = False
         if not acc:
