@@ -18,12 +18,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Linux
-            runner: ubuntu-latest
-            build_cmd: flet build linux
-            artifact_name: utilspress-linux
-            artifact_path: build/linux
-            needs_linux_deps: true
+          # Solo Windows por ahora (2026-10-26): Linux y macOS comentados.
+          # - name: Linux
+          #   runner: ubuntu-latest
+          #   build_cmd: flet build linux
+          #   artifact_name: utilspress-linux
+          #   artifact_path: build/linux
+          #   needs_linux_deps: true
 
           # - name: macOS
           #   runner: macos-latest
