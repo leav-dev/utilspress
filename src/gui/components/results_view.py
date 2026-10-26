@@ -15,6 +15,12 @@ def build_results_table(results, operation, output_dir):
     if not results:
         return ft.Column()
 
+    # Con 1000+ archivos renderizar todas las filas congela la UI: el resumen
+    # (totales/promedio) siempre cubre todo, la tabla muestra las primeras.
+    MAX_ROWS = 200
+    shown = results[:MAX_ROWS]
+    hidden = len(results) - len(shown)
+
     total_orig = sum(r["original_size"] for r in results)
     total_final = sum(r["final_size"] for r in results)
     avg = round((1 - total_final / total_orig) * 100, 1) if total_orig else 0
@@ -35,9 +41,13 @@ def build_results_table(results, operation, output_dir):
         cols.append(ft.DataColumn(ft.Text("Ahorro", size=12)))
     if operation == "pdf":
         cols.append(ft.DataColumn(ft.Text("Preset", size=12)))
+    # Solo aparece cuando hay omitidos/errores: no cambia nada en corridas limpias.
+    has_status = any(r.get("note") or r.get("error") for r in results)
+    if has_status:
+        cols.append(ft.DataColumn(ft.Text("Estado", size=12)))
 
     rows = []
-    for r in results:
+    for r in shown:
         cells = [ft.DataCell(ft.Text(r["file"], size=12))]
         if operation == "convert":
             cells.append(ft.DataCell(ft.Text(r["new_file"], size=12)))
@@ -52,6 +62,10 @@ def build_results_table(results, operation, output_dir):
             ))
         if operation == "pdf":
             cells.append(ft.DataCell(ft.Text(r.get("preset", ""), size=12)))
+        if has_status:
+            msg = r.get("note") or r.get("error") or "—"
+            color = ft.Colors.RED if r.get("error") else ft.Colors.GREY_600
+            cells.append(ft.DataCell(ft.Text(msg, size=11, color=color)))
         rows.append(ft.DataRow(cells=cells))
 
     noun = "PDF(s)" if operation == "pdf" else "archivo(s)"
@@ -77,6 +91,12 @@ def build_results_table(results, operation, output_dir):
             columns=cols,
             rows=rows,
             column_spacing=30,
+        ),
+        ft.Text(
+            f"… y {hidden} archivo(s) más (solo se muestran los primeros {MAX_ROWS})",
+            size=11,
+            color=ft.Colors.GREY_600,
+            visible=hidden > 0,
         ),
         ft.Divider(height=8, color=ft.Colors.TRANSPARENT),
         ft.Text(

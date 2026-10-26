@@ -20,9 +20,11 @@ def build_compress_tab(page: ft.Page):
         on_change=lambda e: setattr(compress_value, "value", str(int(e.control.value))) or page.update(),
     )
     path_label = ft.Text("Ningún archivo seleccionado", size=13, color=ft.Colors.GREY_600)
-    progress = ft.ProgressBar(visible=False, width=600)
+    status = ft.Text("", size=13, weight=ft.FontWeight.W_500)
+    progress = ft.ProgressBar(visible=False, width=600, value=0)
     results_area = ft.Column()
     overwrite_cb = ft.Checkbox(label="Reemplazar archivos originales", value=False)
+    force_cb = ft.Checkbox(label="Reprocesar archivos ya marcados", value=False)
 
     def set_paths(paths):
         state["paths"] = paths
@@ -58,13 +60,29 @@ def build_compress_tab(page: ft.Page):
 
     def _compress():
         acc = []
+        counters = {"total": 0, "done": 0}
+        lock = threading.Lock()
 
         in_place = overwrite_cb.value
         output = "Archivos originales (reemplazados)" if in_place else f"{OUTPUT_BASE}"
 
+        def on_start(total):
+            counters["total"] = total
+            status.value = f"0/{total} archivos…" if total else "Sin archivos"
+            progress.value = 0
+            page.update()
+
         def on_progress(result):
-            acc.append(result)
-            results_area.controls = [build_results_table(acc, "compress", output)]
+            # Update liviano: solo contador + barra. La tabla completa
+            # se construye una vez al final para no atrasar la UI
+            # frente al filesystem (antes se rebuildaba por archivo).
+            with lock:
+                acc.append(result)
+                counters["done"] += 1
+                done = counters["done"]
+                total = counters["total"] or done
+                progress.value = done / total if total else 0
+                status.value = f"{done}/{total} – {result['file']}"
             page.update()
 
         results = compress_images(
@@ -73,16 +91,21 @@ def build_compress_tab(page: ft.Page):
             compress_level=int(compress_slider.value),
             on_progress=on_progress,
             in_place=in_place,
+            on_start=on_start,
+            force=force_cb.value,
         )
         progress.visible = False
-        if not acc:
-            results_area.controls = [build_results_table(results, "compress", output)]
-            page.update()
+        total = counters["total"] or len(results)
+        status.value = f"Listo: {len(results)}/{total} archivos"
+        results_area.controls = [build_results_table(results, "compress", output)]
+        page.update()
 
     def on_compress(e):
         if not state["paths"]:
             return
         results_area.controls.clear()
+        status.value = "Contando archivos…"
+        progress.value = 0
         progress.visible = True
         page.update()
         threading.Thread(target=_compress, daemon=True).start()
@@ -99,8 +122,10 @@ def build_compress_tab(page: ft.Page):
         ft.Text("Compresión PNG (0 = sin compresión, 9 = máxima)", size=13, weight=ft.FontWeight.W_500),
         ft.Row([compress_slider, compress_value], vertical_alignment=ft.CrossAxisAlignment.CENTER),
         overwrite_cb,
+        force_cb,
         ft.Divider(height=12, color=ft.Colors.TRANSPARENT),
         ft.Button("Comprimir", icon=ft.Icons.COMPRESS, on_click=on_compress),
+        status,
         progress,
         results_area,
     ], scroll=ft.ScrollMode.AUTO, expand=True)

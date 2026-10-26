@@ -55,16 +55,21 @@ def _total_freed_str(results):
 
 
 def _print_image_result(r, kind):
+    extra = ""
+    if "error" in r:
+        extra = f" [ERROR: {r['error']}]"
+    elif r.get("note"):
+        extra = f" [omitido: {r['note']}]"
     if kind == "convert":
         print(f"  {r['file']} -> {r['new_file']} "
-              f"({r['original_size_str']} -> {r['final_size_str']})")
+              f"({r['original_size_str']} -> {r['final_size_str']}){extra}")
     elif kind == "resize":
         print(f"  {r['file']} {r['original_dims']} -> {r['final_dims']} "
-              f"({r['original_size_str']} -> {r['final_size_str']})")
+              f"({r['original_size_str']} -> {r['final_size_str']}){extra}")
     else:
         print(f"  {r['file']} "
               f"({r['original_size_str']} -> {r['final_size_str']}, "
-              f"ahorro {r['savings_percent']}%)")
+              f"ahorro {r['savings_percent']}%){extra}")
 
 
 def cmd_compress(args):
@@ -75,6 +80,7 @@ def cmd_compress(args):
         quality=args.quality,
         compress_level=args.compress_level,
         in_place=in_place,
+        force=args.force,
     )
     if not results:
         print("No se encontraron imagenes para comprimir.")
@@ -96,6 +102,7 @@ def cmd_convert(args):
         args.to.upper(),
         output_dir=args.output_dir,
         in_place=in_place,
+        force=args.force,
     )
     if not results:
         print("No se encontraron imagenes para convertir.")
@@ -117,6 +124,7 @@ def cmd_resize(args):
         output_dir=args.output_dir,
         maintain_aspect=args.keep_aspect,
         in_place=in_place,
+        force=args.force,
     )
     if not results:
         print("No se encontraron imagenes para redimensionar.")
@@ -137,12 +145,18 @@ def cmd_pdf(args):
         quality=args.preset,
         in_place=in_place,
         jobs=args.jobs,
+        force=args.force,
     )
     if not results:
         print("No se encontraron PDFs para comprimir.")
         return 1
     for r in results:
-        extra = f" [ERROR: {r['error']}]" if "error" in r else ""
+        if "error" in r:
+            extra = f" [ERROR: {r['error']}]"
+        elif r.get("note"):
+            extra = f" [omitido: {r['note']}]"
+        else:
+            extra = ""
         print(f"  {r['file']} "
               f"({r['original_size_str']} -> {r['final_size_str']}, "
               f"ahorro {r['savings_percent']}%){extra}")
@@ -180,6 +194,8 @@ def build_parser():
                    help="Calidad JPG/WEBP 1-100 (defecto: 85).")
     c.add_argument("--compress-level", type=int, default=6,
                    help="Nivel PNG 0-9 (defecto: 6).")
+    c.add_argument("--force", action="store_true",
+                   help="Reprocesar archivos ya marcados.")
     c.set_defaults(func=cmd_compress)
 
     c = sub.add_parser("convert", help="Convierte entre JPG, PNG y WEBP.")
@@ -187,6 +203,8 @@ def build_parser():
     c.add_argument("--to", required=True, choices=["jpg", "jpeg", "png", "webp"],
                    help="Formato destino.")
     c.add_argument("-o", "--output-dir", default=None, help=KEEP_ORIGINALS_HELP)
+    c.add_argument("--force", action="store_true",
+                   help="Reprocesar archivos ya marcados.")
     c.set_defaults(func=cmd_convert)
 
     c = sub.add_parser("resize", help="Redimensiona imagenes.")
@@ -197,6 +215,8 @@ def build_parser():
                    action="store_false", default=True,
                    help="No mantener relacion de aspecto.")
     c.add_argument("-o", "--output-dir", default=None, help=KEEP_ORIGINALS_HELP)
+    c.add_argument("--force", action="store_true",
+                   help="Reprocesar archivos ya marcados.")
     c.set_defaults(func=cmd_resize)
 
     c = sub.add_parser("pdf", help="Comprime PDFs.")
@@ -206,6 +226,8 @@ def build_parser():
     c.add_argument("-o", "--output-dir", default=None, help=KEEP_ORIGINALS_HELP)
     c.add_argument("-j", "--jobs", type=int, default=0,
                    help="Trabajadores paralelos (0=auto, 1=secuencial).")
+    c.add_argument("--force", action="store_true",
+                   help="Reprocesar archivos ya marcados.")
     c.set_defaults(func=cmd_pdf)
 
     c = sub.add_parser("zip", help="Comprime una carpeta a ZIP.")

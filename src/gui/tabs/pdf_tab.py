@@ -5,6 +5,16 @@ from ..components.results_view import build_results_table
 from ..components.file_picker import pick_files_async, pick_dir_async
 
 
+def _fmt_freed(bytes_val):
+    if bytes_val >= 1024 ** 3:
+        return f"{bytes_val / (1024 ** 3):.2f} GB"
+    if bytes_val >= 1024 * 1024:
+        return f"{bytes_val / (1024 * 1024):.2f} MB"
+    if bytes_val >= 1024:
+        return f"{bytes_val / 1024:.2f} KB"
+    return f"{int(bytes_val)} B"
+
+
 def build_pdf_tab(page: ft.Page):
     state = {"paths": []}
 
@@ -14,9 +24,12 @@ def build_pdf_tab(page: ft.Page):
         width=300,
     )
     path_label = ft.Text("Ningún archivo seleccionado", size=13, color=ft.Colors.GREY_600)
-    progress = ft.ProgressBar(visible=False, width=600)
+    status = ft.Text("", size=13, weight=ft.FontWeight.W_500)
+    live = ft.Text("", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN)
+    progress = ft.ProgressBar(visible=False, width=600, value=0)
     results_area = ft.Column()
     overwrite_cb = ft.Checkbox(label="Reemplazar archivos originales", value=False)
+    force_cb = ft.Checkbox(label="Reprocesar archivos ya marcados", value=False)
 
     def set_paths(paths):
         state["paths"] = paths
@@ -52,13 +65,52 @@ def build_pdf_tab(page: ft.Page):
 
     def _compress():
         acc = []
+        counters = {"found": 0, "total": None, "done": 0, "freed": 0}
+        lock = threading.Lock()
 
         in_place = overwrite_cb.value
         output = "Archivos originales (reemplazados)" if in_place else f"{OUTPUT_BASE}"
 
+        def on_discover(found):
+            # Escaneo en curso (streaming): total aún desconocido.
+            # Barra indeterminada + vivos encontrados/procesados.
+            with lock:
+                counters["found"] = found
+                if counters["total"] is None:
+                    status.value = f"🔎 Encontrados {found} · procesados {counters['done']}…"
+                    progress.value = None
+            page.update()
+
+        def on_start(total):
+            with lock:
+                counters["total"] = total
+                if total == 0:
+                    status.value = "Sin archivos"
+                    progress.value = 0
+                elif counters["done"] == 0:
+                    status.value = f"0/{total} PDFs…"
+                    progress.value = 0
+            page.update()
+
         def on_progress(result):
-            acc.append(result)
-            results_area.controls = [build_results_table(acc, "pdf", output)]
+            # Viene de hasta 8 workers + hilo de escaneo: todo bajo lock.
+            with lock:
+                acc.append(result)
+                counters["done"] += 1
+                counters["freed"] += max(
+                    0, result["original_size"] - result["final_size"]
+                )
+                done = counters["done"]
+                freed_str = _fmt_freed(counters["freed"])
+                total = counters["total"]
+                if total is None:
+                    found = counters["found"] or done
+                    progress.value = None
+                    status.value = f"🔎 {done}/{found} – {result['file']}"
+                else:
+                    progress.value = done / total if total else 1
+                    status.value = f"{done}/{total} – {result['file']}"
+                live.value = f"💾 Liberado hasta ahora: {freed_str}"
             page.update()
 
         results = compress_pdfs(
@@ -67,16 +119,32 @@ def build_pdf_tab(page: ft.Page):
             on_progress=on_progress,
             in_place=in_place,
             jobs=0,
+            on_start=on_start,
+            on_discover=on_discover,
+            force=force_cb.value,
         )
         progress.visible = False
-        if not acc:
-            results_area.controls = [build_results_table(results, "pdf", output)]
-            page.update()
+        total = counters["total"]
+        if total is None:
+            total = len(results)
+        status.value = f"Listo: {len(results)}/{total} PDFs"
+        skipped = sum(1 for r in results if r.get("skipped"))
+        if skipped:
+            status.value += f" ({skipped} omitidos por marca)"
+        live.value = (
+            f"💾 Total liberado: {_fmt_freed(counters['freed'])}"
+            if results else ""
+        )
+        results_area.controls = [build_results_table(results, "pdf", output)]
+        page.update()
 
     def on_compress(e):
         if not state["paths"]:
             return
         results_area.controls.clear()
+        live.value = ""
+        status.value = "Buscando PDFs…"
+        progress.value = None
         progress.visible = True
         page.update()
         threading.Thread(target=_compress, daemon=True).start()
@@ -91,8 +159,11 @@ def build_pdf_tab(page: ft.Page):
         ft.Text("Preset de compresión", size=13, weight=ft.FontWeight.W_500),
         preset_dropdown,
         overwrite_cb,
+        force_cb,
         ft.Divider(height=12, color=ft.Colors.TRANSPARENT),
         ft.Button("Comprimir PDF", icon=ft.Icons.COMPRESS, on_click=on_compress),
+        status,
+        live,
         progress,
         results_area,
     ], scroll=ft.ScrollMode.AUTO, expand=True)

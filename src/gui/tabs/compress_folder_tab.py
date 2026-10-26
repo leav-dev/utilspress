@@ -13,6 +13,7 @@ def build_compress_folder_tab(page: ft.Page):
         on_change=lambda e: setattr(level_value, "value", str(int(e.control.value))) or page.update(),
     )
     path_label = ft.Text("Ninguna carpeta seleccionada", size=13, color=ft.Colors.GREY_600)
+    status = ft.Text("", size=13, weight=ft.FontWeight.W_500)
     progress = ft.ProgressBar(visible=False, width=600)
     results_area = ft.Column()
 
@@ -38,11 +39,14 @@ def build_compress_folder_tab(page: ft.Page):
     def _compress():
         if not state["path"]:
             return
+        status.value = "Comprimiendo…"
+        page.update()
         result = compress_folder(
             state["path"],
             level=int(level_slider.value),
         )
         progress.visible = False
+        status.value = f"Listo: {result['file']}"
         results_area.controls = [build_results_table([result], "compress", result["output_path"])]
         page.update()
 
@@ -64,6 +68,7 @@ def build_compress_folder_tab(page: ft.Page):
         ft.Row([level_slider, level_value], vertical_alignment=ft.CrossAxisAlignment.CENTER),
         ft.Divider(height=12, color=ft.Colors.TRANSPARENT),
         ft.Button("Comprimir ZIP", icon=ft.Icons.FOLDER_ZIP, on_click=on_compress),
+        status,
         progress,
         results_area,
     ], scroll=ft.ScrollMode.AUTO, expand=True)
